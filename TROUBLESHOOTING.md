@@ -1,6 +1,6 @@
-# 🔧 Guia de Troubleshooting - Library CLI
+# Guia de Troubleshooting - Library CLI
 
-## ❌ PostgreSQL não consegue conectar
+## PostgreSQL não consegue conectar
 
 ### Sintomas
 - Erro: "Failed to connect to database"
@@ -99,7 +99,7 @@ sudo ufw allow 5432/tcp
 
 ---
 
-## ✅ Solução: Usar PostgreSQL com Docker (Recomendado)
+## Solução: Usar PostgreSQL com Docker (Recomendado)
 
 Se quiser evitar problemas de instalação local:
 
@@ -122,7 +122,7 @@ docker exec -it biblioteca-db psql -U postgres -d biblioteca
 
 ---
 
-## 🔄 Resetar PostgreSQL para Configuração Padrão
+## Resetar PostgreSQL para Configuração Padrão
 
 ### Windows
 
@@ -168,7 +168,7 @@ sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '';"
 
 ---
 
-## 🧪 Testar Conexão com Script Node
+## Testar Conexão com Script Node
 
 Criar arquivo `test-connection.js`:
 
@@ -185,11 +185,11 @@ const client = new Client({
 
 client.connect(err => {
   if (err) {
-    console.error('❌ Erro de conexão:', err.message);
+    console.error('Erro de conexão:', err.message);
     console.error('Código:', err.code);
     console.error('Detalhes:', err);
   } else {
-    console.log('✅ Conectado com sucesso!');
+    console.log('Conectado com sucesso!');
     client.query('SELECT version()', (err, res) => {
       if (err) console.error(err);
       else console.log('Versão:', res.rows[0].version);
@@ -206,7 +206,7 @@ node test-connection.js
 
 ---
 
-## 📋 Checklist de Verificação
+## Checklist de Verificação
 
 - [ ] PostgreSQL está instalado?
   ```bash
@@ -241,7 +241,7 @@ node test-connection.js
 
 ---
 
-## 🆘 Precisa de mais ajuda?
+## Precisa de mais ajuda?
 
 1. **Verificar logs de erro**:
    ```bash
