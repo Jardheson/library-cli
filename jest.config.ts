@@ -10,11 +10,30 @@ const config: Config = {
     "<rootDir>/src/utils/**/*.ts",
     "<rootDir>/src/services/**/*.ts"
   ],
-  globals: {
-    "ts-jest": {
-      tsconfig: "<rootDir>/tsconfig.jest.json"
-    }
+  transform: {
+    "^.+\\.tsx?$": [
+      "ts-jest",
+      {
+        tsconfig: "<rootDir>/tsconfig.jest.json",
+        useESM: true,
+        extensionsToTreatAsEsm: [".ts"]
+      }
+    ],
+    "^.+\\.js$": [
+      "ts-jest",
+      {
+        useESM: true
+      }
+    ]
   },
+  extensionsToTreatAsEsm: [".ts"],
+  moduleNameMapper: {
+    "^(\\.{1,2}/.*)\\.js$": "$1"
+  },
+  testPathIgnorePatterns: ["/node_modules/", "/dist/"],
+  transformIgnorePatterns: [
+    "node_modules/(?!uuid)"
+  ],
   coverageThreshold: {
     global: {
       branches: 70,
