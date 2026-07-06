@@ -15,7 +15,7 @@ Sistema completo de gerenciamento de biblioteca via Terminal (CLI) desenvolvido 
 - Testes automatizados com cobertura completa
 - TypeScript com tipagem forte em todo projeto
 
-## 🛠️ Tecnologias
+## Tecnologias
 
 - **Node.js** 18+ - Runtime JavaScript
 - **TypeScript** - Linguagem tipada
