@@ -112,8 +112,8 @@ npm run test:coverage # Gerar relatório de cobertura
 
 ```
 src/
-├── main.ts                 # Ponto de entrada
-├── controllers/            # Controladores
+├── main.ts                # Ponto de entrada
+├── controllers/           # Controladores
 ├── services/              # Lógica de negócio
 ├── repositories/          # Acesso a dados
 ├── models/                # Modelos de dados
