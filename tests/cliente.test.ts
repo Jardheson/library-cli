@@ -259,6 +259,80 @@ describe("CRUD Cliente (Service)", () => {
       NotFoundError
     );
   });
+
+  test("lista, busca e exclui cliente existente", async () => {
+    const repo = new InMemoryClienteRepository();
+    const service = new ClienteService(repo as any, new SilentLogger() as any);
+
+    const cliente = await service.create({
+      nome: "Carlos",
+      email: "carlos@example.com",
+      cpf: "52998224725",
+      telefone: null
+    });
+
+    const list = await service.list(1, 10);
+    const search = await service.searchByName("Car", 1, 10);
+    const deleted = await service.delete(cliente.id);
+
+    expect(list.totalItems).toBe(1);
+    expect(search.totalItems).toBe(1);
+    expect(deleted).toBe(true);
+  });
+
+  test("rejeita update com e-mail inválido", async () => {
+    const repo = new InMemoryClienteRepository();
+    const service = new ClienteService(repo as any, new SilentLogger() as any);
+    const cliente = await service.create({
+      nome: "Carlos",
+      email: "carlos@example.com",
+      cpf: "52998224725",
+      telefone: null
+    });
+
+    await expect(
+      service.update(cliente.id, {
+        nome: "Carlos",
+        email: "invalido",
+        cpf: "52998224725",
+        telefone: null
+      })
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("rejeita update com CPF inválido", async () => {
+    const repo = new InMemoryClienteRepository();
+    const service = new ClienteService(repo as any, new SilentLogger() as any);
+    const cliente = await service.create({
+      nome: "Carlos",
+      email: "carlos@example.com",
+      cpf: "52998224725",
+      telefone: null
+    });
+
+    await expect(
+      service.update(cliente.id, {
+        nome: "Carlos",
+        email: "carlos@example.com",
+        cpf: "11111111111",
+        telefone: null
+      })
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("lança NotFound ao atualizar inexistente", async () => {
+    const repo = new InMemoryClienteRepository();
+    const service = new ClienteService(repo as any, new SilentLogger() as any);
+
+    await expect(
+      service.update("11111111-1111-1111-8111-111111111111", {
+        nome: "Carlos",
+        email: "carlos@example.com",
+        cpf: "52998224725",
+        telefone: null
+      })
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
 });
 
 describe("Utils", () => {
