@@ -1,20 +1,16 @@
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from "pg";
 import dotenv from "dotenv";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { DatabaseError } from "../utils/Errors";
+import { DatabaseError } from "../utils/Errors";
+import {
+  resolveDatabaseConfig,
+  validateDatabaseConfig
+} from "./config";
+import { applyPendingMigrations } from "./migrations";
 
 dotenv.config();
 
 type QueryParams = Array<string | number | boolean | Date | null>;
-
-type DatabaseConfig = {
-  host: string;
-  port: number;
-  user: string;
-  password: string;
-  database: string;
-};
 
 function buildConnectionError(err: unknown): DatabaseError {
   if (err && typeof err === "object" && "code" in err) {
@@ -42,25 +38,10 @@ function buildConnectionError(err: unknown): DatabaseError {
   });
 }
 
-function loadDatabaseConfig(): DatabaseConfig {
-  const requiredKeys = ["DB_HOST", "DB_PORT", "DB_USER", "DB_NAME"] as const;
-  const missingKeys = requiredKeys.filter((key) => !process.env[key]);
-
-  if (missingKeys.length > 0) {
-    throw new Error(
-      `Configuração do banco incompleta. Defina as variáveis ausentes em .env: ${missingKeys.join(
-        ", "
-      )}.`
-    );
-  }
-
-  return {
-    host: process.env.DB_HOST as string,
-    port: Number(process.env.DB_PORT),
-    user: process.env.DB_USER as string,
-    password: process.env.DB_PASSWORD || "",
-    database: process.env.DB_NAME as string
-  };
+function loadDatabaseConfig() {
+  const config = resolveDatabaseConfig();
+  validateDatabaseConfig(config);
+  return config;
 }
 
 const databaseConfig = loadDatabaseConfig();
@@ -116,39 +97,7 @@ export const db = {
 };
 
 export async function initializeDatabase(): Promise<void> {
-  const schemaPath = path.resolve(__dirname, "schema.sql");
-  const seedPath = path.resolve(__dirname, "seed.sql");
-
-  const schemaSql = await readFile(schemaPath, { encoding: "utf8" });
-  const seedSql = await readFile(seedPath, { encoding: "utf8" });
-
-  await db.withTransaction(async (client) => {
-    await client.query(schemaSql);
-
-    const counts = await client.query<{
-      autores: string;
-      livros: string;
-      clientes: string;
-      emprestimos: string;
-    }>(
-      `
-      SELECT
-        (SELECT COUNT(*)::text FROM autores) AS autores,
-        (SELECT COUNT(*)::text FROM livros) AS livros,
-        (SELECT COUNT(*)::text FROM clientes) AS clientes,
-        (SELECT COUNT(*)::text FROM emprestimos) AS emprestimos
-      `
-    );
-
-    const row = counts.rows[0];
-    const shouldSeed =
-      Number(row.autores) === 0 &&
-      Number(row.livros) === 0 &&
-      Number(row.clientes) === 0 &&
-      Number(row.emprestimos) === 0;
-
-    if (shouldSeed) {
-      await client.query(seedSql);
-    }
+  await db.withClient(async (client) => {
+    await applyPendingMigrations(client);
   });
 }

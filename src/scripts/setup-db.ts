@@ -1,173 +1,225 @@
-import { Client } from 'pg';
-import { readFile, writeFile } from 'node:fs/promises';
-import path from 'node:path';
-import dotenv from 'dotenv';
-import * as fs from 'node:fs';
+import { access, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import inquirer from "inquirer";
+import { Client } from "pg";
+import {
+  resolveDatabaseConfig,
+  type DatabaseConfig
+} from "../database/config";
+import { applyPendingMigrations } from "../database/migrations";
 
-dotenv.config();
+const maintenanceDatabase = "postgres";
 
-const __dirname = process.cwd();
-
-async function readlineAsync(): Promise<string> {
-  return new Promise((resolve) => {
-    const stdin = process.stdin;
-    stdin.resume();
-    stdin.setEncoding('utf8');
-    
-    let data = '';
-    
-    const onData = (chunk: string) => {
-      data += chunk;
-      if (data.includes('\n')) {
-        stdin.removeListener('data', onData);
-        stdin.pause();
-        resolve(data.trim());
-      }
-    };
-    
-    stdin.on('data', onData);
-  });
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-async function tryConnect(user: string, password: string, database: string): Promise<Client | null> {
-  const clientConfig: any = {
-    host: 'localhost',
-    port: 5432,
-    user,
-    database,
-    password
-  };
-
-  const client = new Client(clientConfig);
+async function tryConnect(
+  config: DatabaseConfig,
+  database: string
+): Promise<Client | null> {
+  const client = new Client({
+    host: config.host,
+    port: config.port,
+    user: config.user,
+    password: config.password,
+    database
+  });
 
   try {
     await client.connect();
     return client;
-  } catch (error) {
-    try {
-      await client.end();
-    } catch { }
+  } catch {
+    await client.end().catch(() => {});
     return null;
   }
 }
 
-async function initializeDatabase() {
-  console.log('\n╔════════════════════════════════════════════════════════════╗');
-  console.log('║   📚 Inicializador de Banco de Dados - Library CLI        ║');
-  console.log('╚════════════════════════════════════════════════════════════╝\n');
-
-  // Tentar diferentes senhas da variável de ambiente primeiro
-  const envPassword = process.env.DB_PASSWORD;
-  let adminClient: Client | null = null;
-
-  if (envPassword) {
-    console.log('🔄 Tentando conectar ao PostgreSQL com credenciais do .env...');
-    adminClient = await tryConnect('postgres', envPassword, 'postgres');
-    if (adminClient) {
-      console.log('✅ Conectado com credenciais do .env\n');
+async function promptForConfig(
+  current: DatabaseConfig
+): Promise<DatabaseConfig> {
+  const answers = await inquirer.prompt([
+    { name: "host", type: "input", message: "DB_HOST:", default: current.host },
+    { name: "port", type: "number", message: "DB_PORT:", default: current.port },
+    { name: "user", type: "input", message: "DB_USER:", default: current.user },
+    {
+      name: "password",
+      type: "password",
+      message: "DB_PASSWORD:",
+      default: current.password,
+      mask: "*"
+    },
+    {
+      name: "database",
+      type: "input",
+      message: "DB_NAME:",
+      default: current.database
     }
-  }
+  ]);
 
-  if (!adminClient) {
-    console.log('⚠️  Não foi possível conectar com as credenciais atuais.');
-    console.log('📝 Próximas opções:');
-    console.log('   1. Tentar sem senha (pressione ENTER)');
-    console.log('   2. Fornecer uma senha específica\n');
-    
-    process.stdout.write('Digite a senha do PostgreSQL (ou deixe em branco para tentar sem senha): ');
-    const userPassword = await readlineAsync();
+  return {
+    host: String(answers.host).trim(),
+    port: Number(answers.port),
+    user: String(answers.user).trim(),
+    password: String(answers.password ?? ""),
+    database: String(answers.database).trim()
+  };
+}
 
-    console.log('\n🔄 Tentando conectar ao PostgreSQL...');
-    adminClient = await tryConnect('postgres', userPassword, 'postgres');
-
-    if (adminClient) {
-      console.log('✅ Conectado ao PostgreSQL\n');
-      
-      // Atualizar .env se for diferente
-      if (userPassword !== envPassword) {
-        console.log('💾 Atualizando arquivo .env...');
-        const envPath = path.join(__dirname, '.env');
-        const newEnvContent = `DB_HOST=localhost\nDB_PORT=5432\nDB_USER=postgres\nDB_PASSWORD=${userPassword}\nDB_NAME=biblioteca\n`;
-        await writeFile(envPath, newEnvContent);
-        console.log('✅ Arquivo .env atualizado\n');
-      }
-    } else {
-      console.error('\n❌ Não foi possível conectar ao PostgreSQL');
-      console.error('   Verifique se o PostgreSQL está rodando em localhost:5432');
-      console.error('   Verifique a senha do usuário postgres\n');
-      process.exit(1);
-    }
-  }
-
-  try {
-    // Verificar se o banco existe
-    console.log('📋 Verificando se banco "biblioteca" existe...');
-    const result = await adminClient.query(
-      "SELECT 1 FROM pg_database WHERE datname = 'biblioteca'"
+function validateDatabaseName(database: string): void {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(database)) {
+    throw new Error(
+      "DB_NAME invalido para criacao automatica. Use apenas letras, numeros e underscore."
     );
-
-    if (result.rows.length === 0) {
-      console.log('📚 Criando banco de dados "biblioteca"...');
-      await adminClient.query('CREATE DATABASE biblioteca ENCODING "UTF8"');
-      console.log('✅ Banco de dados criado com sucesso\n');
-    } else {
-      console.log('✅ Banco de dados "biblioteca" já existe\n');
-    }
-
-    await adminClient.end();
-
-    // Conectar ao banco biblioteca
-    let dbClient: Client | null = null;
-    const dbPassword = process.env.DB_PASSWORD || '';
-
-    console.log('🔄 Conectando ao banco "biblioteca"...');
-    dbClient = await tryConnect('postgres', dbPassword, 'biblioteca');
-
-    if (!dbClient) {
-      console.error('❌ Não foi possível conectar ao banco "biblioteca"\n');
-      process.exit(1);
-    }
-
-    console.log('✅ Conectado ao banco de dados\n');
-
-    // Ler e executar o schema
-    console.log('📋 Criando estrutura de tabelas...');
-    const schemaPath = path.join(__dirname, 'src', 'database', 'schema.sql');
-    const schema = await readFile(schemaPath, 'utf-8');
-    await dbClient.query(schema);
-    console.log('✅ Tabelas criadas com sucesso\n');
-
-    // Verificar se há dados e adicionar seed se necessário
-    console.log('📊 Verificando dados iniciais...');
-    const countAutores = await dbClient.query('SELECT COUNT(*) FROM autores');
-    
-    if (countAutores.rows[0].count === 0) {
-      console.log('🌱 Adicionando dados de seed...');
-      const seedPath = path.join(__dirname, 'src', 'database', 'seed.sql');
-      const seed = await readFile(seedPath, 'utf-8');
-      await dbClient.query(seed);
-      console.log('✅ Dados de seed adicionados\n');
-    } else {
-      console.log('✅ Dados já existem no banco\n');
-    }
-
-    await dbClient.end();
-
-    console.log('╔════════════════════════════════════════════════════════════╗');
-    console.log('║ ✨ Banco de dados inicializado com sucesso!              ║');
-    console.log('║                                                            ║');
-    console.log('║ 🚀 Próximos passos:                                       ║');
-    console.log('║    npm run dev   - Iniciar em modo desenvolvimento        ║');
-    console.log('║    npm run build - Compilar projeto                       ║');
-    console.log('║    npm test      - Executar testes                        ║');
-    console.log('╚════════════════════════════════════════════════════════════╝\n');
-
-    process.exit(0);
-  } catch (error) {
-    console.error('❌ Erro ao inicializar banco de dados:');
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
   }
 }
 
-initializeDatabase();
+async function upsertEnvFile(
+  filePath: string,
+  config: DatabaseConfig
+): Promise<void> {
+  const existing = (await fileExists(filePath))
+    ? await readFile(filePath, { encoding: "utf8" })
+    : "";
+
+  const map = new Map<string, string>();
+  const preservedLines: string[] = [];
+
+  for (const rawLine of existing.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#") || !line.includes("=")) {
+      if (rawLine) preservedLines.push(rawLine);
+      continue;
+    }
+
+    const sepIndex = rawLine.indexOf("=");
+    const key = rawLine.slice(0, sepIndex).trim();
+    const value = rawLine.slice(sepIndex + 1);
+    map.set(key, value);
+  }
+
+  map.set("DB_HOST", config.host);
+  map.set("DB_PORT", String(config.port));
+  map.set("DB_USER", config.user);
+  map.set("DB_PASSWORD", config.password);
+  map.set("DB_NAME", config.database);
+
+  const envLines = [
+    ...preservedLines,
+    `DB_HOST=${map.get("DB_HOST") ?? ""}`,
+    `DB_PORT=${map.get("DB_PORT") ?? ""}`,
+    `DB_USER=${map.get("DB_USER") ?? ""}`,
+    `DB_PASSWORD=${map.get("DB_PASSWORD") ?? ""}`,
+    `DB_NAME=${map.get("DB_NAME") ?? ""}`
+  ];
+
+  await writeFile(filePath, `${envLines.filter(Boolean).join("\n")}\n`, {
+    encoding: "utf8"
+  });
+}
+
+async function connectAdmin(
+  config: DatabaseConfig
+): Promise<{ config: DatabaseConfig; client: Client; prompted: boolean }> {
+  const initialClient = await tryConnect(config, maintenanceDatabase);
+  if (initialClient) {
+    return { config, client: initialClient, prompted: false };
+  }
+
+  if (!process.stdin.isTTY) {
+    throw new Error(
+      "Falha ao conectar com a configuracao atual e nao ha terminal interativo para solicitar novos dados."
+    );
+  }
+
+  console.log(
+    "Nao foi possivel conectar com a configuracao atual. Informe os dados do PostgreSQL."
+  );
+  const promptedConfig = await promptForConfig(config);
+  const promptedClient = await tryConnect(promptedConfig, maintenanceDatabase);
+
+  if (!promptedClient) {
+    throw new Error(
+      "Nao foi possivel conectar ao PostgreSQL com os dados informados."
+    );
+  }
+
+  return { config: promptedConfig, client: promptedClient, prompted: true };
+}
+
+async function ensureDatabaseExists(
+  client: Client,
+  databaseName: string
+): Promise<void> {
+  validateDatabaseName(databaseName);
+
+  const result = await client.query(
+    "SELECT 1 FROM pg_database WHERE datname = $1",
+    [databaseName]
+  );
+
+  if (result.rows.length > 0) {
+    return;
+  }
+
+  await client.query(`CREATE DATABASE "${databaseName}" ENCODING 'UTF8'`);
+}
+
+async function connectDatabaseOrFail(
+  config: DatabaseConfig
+): Promise<Client> {
+  const client = await tryConnect(config, config.database);
+  if (!client) {
+    throw new Error(
+      `Nao foi possivel conectar ao banco "${config.database}" com a configuracao atual.`
+    );
+  }
+  return client;
+}
+
+async function initializeDatabase(): Promise<void> {
+  const envPath = path.resolve(process.cwd(), ".env");
+  const initialConfig = resolveDatabaseConfig();
+
+  console.log("\nLibrary CLI - setup do banco\n");
+
+  const { config, client: adminClient, prompted } = await connectAdmin(
+    initialConfig
+  );
+
+  try {
+    console.log(`Verificando banco "${config.database}"...`);
+    await ensureDatabaseExists(adminClient, config.database);
+  } finally {
+    await adminClient.end().catch(() => {});
+  }
+
+  const dbClient = await connectDatabaseOrFail(config);
+  try {
+    console.log("Aplicando migrations versionadas...");
+    await applyPendingMigrations(dbClient);
+  } finally {
+    await dbClient.end().catch(() => {});
+  }
+
+  if (prompted || !(await fileExists(envPath))) {
+    await upsertEnvFile(envPath, config);
+  }
+
+  console.log("\nSetup concluido com sucesso.");
+  console.log("Proximos passos:");
+  console.log(" - npm run dev");
+  console.log(" - npm run build");
+  console.log(" - npm test");
+}
+
+initializeDatabase().catch((error) => {
+  console.error("Falha no setup do banco.");
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+});
