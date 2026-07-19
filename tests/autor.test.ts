@@ -77,4 +77,28 @@ describe("CRUD Autor (Service)", () => {
     const autor = await service.create({ nome: "Clarice", nacionalidade: null });
     await expect(service.delete(autor.id)).resolves.toBe(true);
   });
+
+  test("lista, busca por nome e atualiza autor existente", async () => {
+    const repo = new InMemoryAutorRepository();
+    const service = new AutorService(repo as any, new SilentLogger() as any);
+    const autor = await service.create({ nome: "Aluisio", nacionalidade: null });
+
+    const list = await service.list(1, 10);
+    const search = await service.searchByName("Alu", 1, 10);
+    const updated = await service.update(autor.id, {
+      nome: "Aluisio Azevedo",
+      nacionalidade: "Brasil"
+    });
+
+    expect(list.totalItems).toBe(1);
+    expect(search.totalItems).toBe(1);
+    expect(updated.nacionalidade).toBe("Brasil");
+  });
+
+  test("lança NotFound ao excluir inexistente", async () => {
+    const service = new AutorService(new InMemoryAutorRepository() as any, new SilentLogger() as any);
+    await expect(service.delete("11111111-1111-1111-1111-111111111111")).rejects.toBeInstanceOf(
+      NotFoundError
+    );
+  });
 });

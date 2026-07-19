@@ -1,7 +1,6 @@
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from "pg";
 import dotenv from "dotenv";
 import { DatabaseError } from "../utils/Errors";
-import { DatabaseError } from "../utils/Errors";
 import {
   resolveDatabaseConfig,
   validateDatabaseConfig
