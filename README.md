@@ -1,8 +1,8 @@
-# 📚 Library CLI - Sistema de Gerenciamento de Biblioteca
+# Library CLI - Sistema de Gerenciamento de Biblioteca
 
 Sistema completo de gerenciamento de biblioteca via Terminal (CLI) desenvolvido com Node.js, TypeScript e PostgreSQL.
 
-## ✨ Características
+## Características
 
 - Gestão completa de Autores, Livros e Clientes
 - Sistema de Empréstimos e Devoluções com controle
@@ -16,7 +16,7 @@ Sistema completo de gerenciamento de biblioteca via Terminal (CLI) desenvolvido 
 - Testes automatizados com cobertura minima de 80% nas camadas criticas
 - TypeScript com tipagem forte em todo projeto
 
-## 🛠️ Tecnologias
+## Tecnologias
 
 - **Node.js** 18+ - Runtime JavaScript
 - **TypeScript** - Linguagem tipada
@@ -28,27 +28,27 @@ Sistema completo de gerenciamento de biblioteca via Terminal (CLI) desenvolvido 
 - **Jest** - Framework de testes
 - **pg** - Driver PostgreSQL
 
-## 📋 Pré-requisitos
+## Pré-requisitos
 
 - Node.js 18 ou superior
 - PostgreSQL 12 ou superior
 - npm ou yarn
 
-## 🚀 Instalação e Configuração
+## Instalação e Configuração
 
-### 1️⃣ Clonar/Preparar o Projeto
+### 1️ Clonar/Preparar o Projeto
 
 ```bash
 cd library-cli
 ```
 
-### 2️⃣ Instalar Dependências
+### 2️ Instalar Dependências
 
 ```bash
 npm install
 ```
 
-### 3️⃣ Configurar Banco de Dados
+### 3️ Configurar Banco de Dados
 
 Execute o script de setup:
 
@@ -63,7 +63,7 @@ Este script:
 - cria o banco configurado em `DB_NAME` se ele nao existir
 - aplica migrations versionadas e seed reprodutivel
 
-### 4️⃣ (Alternativo) Configuração Manual
+### 4️ (Alternativo) Configuração Manual
 
 Se preferir configurar manualmente:
 
@@ -85,7 +85,7 @@ cp .env.example .env
 npm run setup
 ```
 
-## 📖 Como Usar
+## Como Usar
 
 ### Iniciar em Desenvolvimento (com hot-reload)
 
@@ -112,7 +112,7 @@ npm test              # Executar todos os testes
 npm run test:coverage # Gerar relatório de cobertura
 ```
 
-## 📁 Estrutura do Projeto
+## Estrutura do Projeto
 
 ```
 src/
@@ -133,7 +133,7 @@ coverage/                   # Relatórios de cobertura
 dist/                       # Código compilado
 ```
 
-## 🗄️ Esquema do Banco de Dados
+## Esquema do Banco de Dados
 
 ### Tabelas
 
@@ -142,7 +142,7 @@ dist/                       # Código compilado
 - **clientes**: Dados de clientes
 - **emprestimos**: Histórico de transações
 
-## 🧪 Testes
+## Testes
 
 ```bash
 npm test                # Executar testes
@@ -159,7 +159,7 @@ A cobertura eh aplicada sobre as camadas criticas de negocio:
 - `src/services`
 - `src/utils`
 
-## ⚙️ Variáveis de Ambiente
+## Variáveis de Ambiente
 
 Arquivo `.env`:
 
@@ -171,7 +171,7 @@ DB_PASSWORD=sua_senha
 DB_NAME=biblioteca
 ```
 
-## 📝 Scripts Disponíveis
+## Scripts Disponíveis
 
 ```bash
 npm run setup           # Configurar banco de dados
@@ -182,14 +182,14 @@ npm test                # Executar testes
 npm run test:coverage   # Testes com cobertura
 ```
 
-## 🗃️ Migrations
+## Migrations
 
 O projeto aplica migrations versionadas sobre a tabela `_migrations`:
 
 - `001_schema` -> cria/atualiza a estrutura principal
 - `002_seed` -> popula dados iniciais apenas quando o banco estiver vazio
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Erro: "Failed to connect to database"
 
@@ -204,7 +204,7 @@ rm -rf node_modules package-lock.json
 npm install
 ```
 
-## 📄 Licença
+## Licença
 
 MIT
 
