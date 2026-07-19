@@ -47,9 +47,14 @@ class InMemoryClienteRepository {
 class InMemoryEmprestimoRepository {
   private items: Emprestimo[] = [];
   private failMarkReturned = false;
+  private failFindByIdAfterReturn = false;
 
   setFailMarkReturned(value: boolean): void {
     this.failMarkReturned = value;
+  }
+
+  setFailFindByIdAfterReturn(value: boolean): void {
+    this.failFindByIdAfterReturn = value;
   }
 
   async create(input: { id: string; livroId: string; clienteId: string; dataEmprestimo: Date }): Promise<Emprestimo> {
@@ -66,6 +71,7 @@ class InMemoryEmprestimoRepository {
   }
 
   async findById(id: string): Promise<Emprestimo | null> {
+    if (this.failFindByIdAfterReturn) return null;
     return this.items.find((e) => e.id === id) ?? null;
   }
 
@@ -297,6 +303,30 @@ describe("Empréstimo/Devolução (Service)", () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
+  test("rejeita devolução quando empréstimo some após concluir transação", async () => {
+    const livroId = "11111111-1111-1111-8111-111111111111";
+    const clienteId = "22222222-2222-2222-8222-222222222222";
+
+    const livrosRepo = new InMemoryLivroRepository([{ id: livroId, quantidade: 2, disponivel: 2 }]);
+    const clientesRepo = new InMemoryClienteRepository([{ id: clienteId }]);
+    const emprestimosRepo = new InMemoryEmprestimoRepository();
+    const transactionRunner = async <T>(fn: (client: any) => Promise<T>) => fn({});
+
+    const service = new EmprestimoService(
+      emprestimosRepo as any,
+      livrosRepo as any,
+      clientesRepo as any,
+      new SilentLogger() as any,
+      transactionRunner as any
+    );
+
+    const emprestimo = await service.registrarEmprestimo({ livroId, clienteId });
+    emprestimosRepo.setFailFindByIdAfterReturn(true);
+
+    await expect(
+      service.registrarDevolucao({ emprestimoId: emprestimo.id })
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
   test("consulta empréstimos ativos e histórico", async () => {
     const livroId = "11111111-1111-1111-8111-111111111111";
     const clienteId = "22222222-2222-2222-8222-222222222222";
