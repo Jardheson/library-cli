@@ -174,4 +174,40 @@ describe("CRUD Livro (Service)", () => {
       NotFoundError
     );
   });
+
+  test("lista, busca e exclui livro existente", async () => {
+    const autorRepo = new InMemoryAutorRepository();
+    const livroRepo = new InMemoryLivroRepository();
+    const service = new LivroService(livroRepo as any, autorRepo as any, new SilentLogger() as any);
+
+    const autorId = "00000000-0000-0000-0000-000000000000";
+    autorRepo.add(autorId);
+
+    const livro = await service.create({ titulo: "Duna", autorId, quantidade: 3 });
+    const list = await service.list(1, 10);
+    const search = await service.searchByTitle("Du", 1, 10);
+    const deleted = await service.delete(livro.id);
+
+    expect(list.totalItems).toBe(1);
+    expect(search.totalItems).toBe(1);
+    expect(deleted).toBe(true);
+  });
+
+  test("rejeita atualização com autor inexistente", async () => {
+    const autorRepo = new InMemoryAutorRepository();
+    const livroRepo = new InMemoryLivroRepository();
+    const service = new LivroService(livroRepo as any, autorRepo as any, new SilentLogger() as any);
+
+    const autorId = "00000000-0000-0000-0000-000000000000";
+    autorRepo.add(autorId);
+    const livro = await service.create({ titulo: "Duna", autorId, quantidade: 3 });
+
+    await expect(
+      service.update(livro.id, {
+        titulo: "Duna 2",
+        autorId: "11111111-1111-1111-8111-111111111111",
+        quantidade: 4
+      })
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
 });
